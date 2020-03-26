@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Controller\Cms;
 
 use App\Annotation\Auth;
+use App\Annotation\Log;
 use App\Controller\AbstractController;
-use App\Event\UserLog;
 use App\Model\Cms\LinUser;
 use App\Model\Cms\LinUserIdentity;
 use App\Request\Cms\UserRequest;
@@ -17,7 +17,6 @@ use Hyperf\HttpServer\Annotation\GetMapping;
 use Hyperf\HttpServer\Annotation\Middleware;
 use Hyperf\HttpServer\Annotation\Middlewares;
 use Hyperf\HttpServer\Annotation\PostMapping;
-use Hyperf\HttpServer\Contract\ResponseInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
@@ -54,20 +53,25 @@ class UserController extends AbstractController
     private $eventDispatcher;
 
     /**
+     * @Log(message="登陆获取了令牌")
      * @PostMapping(path="login")
+     * @param UserRequest $request
+     * @return array
+     * @throws \App\Exception\Cms\UserException
      */
     public function login(UserRequest $request)
     {
         $request->validated();
         $params = $request->post();
         $user = $this->userIdentity->verify($params['username'], $params['password'], LinUserIdentity::TYPE_LOGIN_USERNAME);
-        $this->eventDispatcher->dispatch(new UserLog(['uid' => $user->id, 'username' => $user->username, 'msg' => '登陆成功获取了令牌','code' => 200]));
         return $this->token->getToken($user);
     }
 
     /**
      * @Auth(auth="获取自己的权限信息",login=true,hidden=true,module="必备")
      * @GetMapping(path="permissions")
+     * @throws \App\Exception\Cms\TokenException
+     * @throws \App\Exception\Cms\UserException
      */
     public function getAllowedApis()
     {
@@ -76,6 +80,7 @@ class UserController extends AbstractController
     }
 
     /**
+     * @Log(message="添加了一个用户")
      * @Auth(auth="添加一个角色",login=true,hidden=true,module="管理员")
      * @PostMapping(path="register")
      */
@@ -90,6 +95,7 @@ class UserController extends AbstractController
     }
 
     /**
+     * @Log(message="刷新了授权令牌")
      * @Auth(auth="刷新授权",hidden=true,module="必备")
      * @GetMapping(path="refresh")
      */

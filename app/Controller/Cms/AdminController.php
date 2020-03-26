@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace App\Controller\Cms;
 
 use App\Annotation\Auth;
+use App\Annotation\Log;
 use App\Controller\AbstractController;
+use App\Exception\Cms\GroupException;
+use App\Exception\Cms\ParameterException;
+use App\Exception\Cms\TokenException;
+use App\Exception\Cms\UserException;
 use App\Init\AuthInit;
 use App\Model\Cms\LinGroup;
 use App\Model\Cms\LinGroupPermission;
@@ -73,7 +78,7 @@ class AdminController extends AbstractController
      */
     public function getGroupAll()
     {
-        return $this->group->all();
+        return $this->group->query()->where('name', '<>', LinGroup::ADMIN_GROUP_NAME )->get();
     }
 
     /**
@@ -88,6 +93,7 @@ class AdminController extends AbstractController
     /**
      * @Auth(auth="获取单个分组信息",module="管理员",login=true,hidden=true)
      * @GetMapping(path="group/{id}")
+     * @throws GroupException
      */
     public function groupInfo(int $id)
     {
@@ -118,6 +124,7 @@ class AdminController extends AbstractController
     }
 
     /**
+     * @Log(message="移除组的权限")
      * @Auth(auth="移除组的权限",module="管理员",login=true,hidden=true)
      * @PostMapping(path="permission/remove")
      */
@@ -135,6 +142,7 @@ class AdminController extends AbstractController
     }
 
     /**
+     * @Log(message="添加组权限")
      * @Auth(auth="添加分组信息",module="管理员",login=true,hidden=true)
      * @PostMapping(path="group")
      */
@@ -153,6 +161,7 @@ class AdminController extends AbstractController
     }
 
     /**
+     * @Log(message="删除分组信息")
      * @Auth(auth="删除分组信息",module="管理员",login=true,hidden=true)
      * @DeleteMapping(path="group/{id}")
      */
@@ -171,6 +180,7 @@ class AdminController extends AbstractController
 
     /**
      * @GetMapping(path="users")
+     * @throws ParameterException
      */
     public function users()
     {
@@ -178,8 +188,12 @@ class AdminController extends AbstractController
     }
 
     /**
+     * @Log(message="修改了用户信息")
      * @Auth(auth="修改用户信息",module="管理员",login=true,hidden=true)
      * @PutMapping(path="user/{id}")
+     * @param int $id
+     * @return array
+     * @throws UserException
      */
     public function storeUser(int $id)
     {
@@ -193,11 +207,23 @@ class AdminController extends AbstractController
     }
 
     /**
+     * @Log(message="删除用户信息")
      * @Auth(auth="删除用户信息",module="管理员",login=true,hidden=true)
      * @DeleteMapping(path="user/{id}")
+     * @param int $id
+     * @return array
+     * @throws UserException
      */
     public function deleteUser(int $id)
     {
+        if ($id === 1) {
+            throw new UserException([
+                'code' => 400,
+                'errorCode' => 11000,
+                'msg' => '管理员不能删除'
+            ]);
+        }
+
         $this->userGroup->query()->where('user_id',$id)->delete();
         $this->log->query()->where('user_id',$id)->delete();
         $this->userIdentity->query()->where('user_id',$id)->delete();
@@ -211,8 +237,10 @@ class AdminController extends AbstractController
     }
 
     /**
+     * @Log(message="修改了密码")
      * @Auth(auth="修改用户密码",module="管理员",login=true,hidden=true)
      * @PutMapping(path="user/{id}/password")
+     * @throws TokenException
      */
     public function password()
     {
